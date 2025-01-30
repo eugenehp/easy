@@ -1,9 +1,10 @@
+use anyhow::Result;
+use chrono::{DateTime, MappedLocalTime, TimeZone, Utc};
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{self, BufRead};
-use std::collections::HashMap;
-use chrono::{DateTime, MappedLocalTime, TimeZone, Utc};
-use anyhow::Result;
 
+/// Struct holding device information for EEG data.
 #[derive(Debug)]
 pub struct DeviceInfo {
     pub version: String,
@@ -18,6 +19,7 @@ pub struct DeviceInfo {
     pub additional_channel: String,
 }
 
+/// Struct for EEG settings including sampling rate, filters, and montage.
 #[derive(Debug)]
 pub struct EEGSettings {
     pub total_channels: usize,
@@ -35,6 +37,7 @@ pub struct EEGSettings {
     pub accelerometer: Option<AccelerometerData>,
 }
 
+/// Struct for accelerometer data.
 #[derive(Debug)]
 pub struct AccelerometerData {
     pub channels: usize,
@@ -42,11 +45,13 @@ pub struct AccelerometerData {
     pub units: String,
 }
 
+/// Struct for trigger information in EEG data.
 #[derive(Debug)]
 pub struct TriggerInfo {
     pub triggers: HashMap<u32, String>,
 }
 
+/// Main struct representing EEG data, including device, settings, and trigger info.
 #[derive(Debug)]
 pub struct EEGData {
     pub device_info: DeviceInfo,
@@ -55,6 +60,7 @@ pub struct EEGData {
 }
 
 impl EEGData {
+    /// Creates a new, empty EEGData struct.
     pub fn new() -> Self {
         EEGData {
             device_info: DeviceInfo {
@@ -90,6 +96,7 @@ impl EEGData {
         }
     }
 
+    /// Parses an EEG data file and returns an EEGData struct.
     pub fn parse_file(filename: &str) -> Result<Self> {
         let file = File::open(filename)?;
         let reader = io::BufReader::new(file);
@@ -117,11 +124,18 @@ impl EEGData {
         Ok(data)
     }
 
+    /// Parses the 'Step Details' section of the file.
     fn parse_step_details(line: &str, data: &mut EEGData) {
         if line.contains("Info Version") {
             data.device_info.version = line.split(':').nth(1).unwrap_or("").trim().to_string();
         } else if line.contains("StartDate") {
-            let timestamp: i64 = line.split(':').nth(1).unwrap_or("").trim().parse().unwrap_or(0);
+            let timestamp: i64 = line
+                .split(':')
+                .nth(1)
+                .unwrap_or("")
+                .trim()
+                .parse()
+                .unwrap_or(0);
 
             data.device_info.start_date = match Utc.timestamp_millis_opt(timestamp) {
                 MappedLocalTime::Single(dt) => Some(dt),
@@ -131,35 +145,77 @@ impl EEGData {
         } else if line.contains("Device class") {
             data.device_info.device_class = line.split(':').nth(1).unwrap_or("").trim().to_string();
         } else if line.contains("Communication type") {
-            data.device_info.communication_type = line.split(':').nth(1).unwrap_or("").trim().to_string();
+            data.device_info.communication_type =
+                line.split(':').nth(1).unwrap_or("").trim().to_string();
         } else if line.contains("Device ID") {
             data.device_info.device_id = line.split(':').nth(1).unwrap_or("").trim().to_string();
         } else if line.contains("Software's version") {
-            data.device_info.software_version = line.split(':').nth(1).unwrap_or("").trim().to_string();
+            data.device_info.software_version =
+                line.split(':').nth(1).unwrap_or("").trim().to_string();
         } else if line.contains("Firmware's version") {
-            data.device_info.firmware_version = line.split(':').nth(1).unwrap_or("").trim().to_string();
+            data.device_info.firmware_version =
+                line.split(':').nth(1).unwrap_or("").trim().to_string();
         } else if line.contains("Operative system") {
             data.device_info.os = line.split(':').nth(1).unwrap_or("").trim().to_string();
         } else if line.contains("SDCard Filename") {
-            data.device_info.sdcard_filename = line.split(':').nth(1).unwrap_or("").trim().to_string();
+            data.device_info.sdcard_filename =
+                line.split(':').nth(1).unwrap_or("").trim().to_string();
         } else if line.contains("Additional channel") {
-            data.device_info.additional_channel = line.split(':').nth(1).unwrap_or("").trim().to_string();
+            data.device_info.additional_channel =
+                line.split(':').nth(1).unwrap_or("").trim().to_string();
         }
     }
 
+    /// Parses the 'EEG Settings' section of the file.
     fn parse_eeg_settings(line: &str, data: &mut EEGData) {
         if line.contains("Total number of channels") {
-            data.eeg_settings.total_channels = line.split(':').nth(1).unwrap_or("").trim().parse().unwrap_or(0);
+            data.eeg_settings.total_channels = line
+                .split(':')
+                .nth(1)
+                .unwrap_or("")
+                .trim()
+                .parse()
+                .unwrap_or(0);
         } else if line.contains("Number of EEG channels") {
-            data.eeg_settings.eeg_channels = line.split(':').nth(1).unwrap_or("").trim().parse().unwrap_or(0);
+            data.eeg_settings.eeg_channels = line
+                .split(':')
+                .nth(1)
+                .unwrap_or("")
+                .trim()
+                .parse()
+                .unwrap_or(0);
         } else if line.contains("Number of records of EEG") {
-            data.eeg_settings.records = line.split(':').nth(1).unwrap_or("").trim().parse().unwrap_or(0);
+            data.eeg_settings.records = line
+                .split(':')
+                .nth(1)
+                .unwrap_or("")
+                .trim()
+                .parse()
+                .unwrap_or(0);
         } else if line.contains("EEG sampling rate") {
-            data.eeg_settings.sampling_rate = line.split(':').nth(1).unwrap_or("").trim().parse().unwrap_or(0.0);
+            data.eeg_settings.sampling_rate = line
+                .split(':')
+                .nth(1)
+                .unwrap_or("")
+                .trim()
+                .parse()
+                .unwrap_or(0.0);
         } else if line.contains("EEG recording configured duration") {
-            data.eeg_settings.configured_duration = line.split(':').nth(1).unwrap_or("").trim().parse().unwrap_or(0);
+            data.eeg_settings.configured_duration = line
+                .split(':')
+                .nth(1)
+                .unwrap_or("")
+                .trim()
+                .parse()
+                .unwrap_or(0);
         } else if line.contains("Number of packets lost") {
-            data.eeg_settings.packets_lost = line.split(':').nth(1).unwrap_or("").trim().parse().unwrap_or(0);
+            data.eeg_settings.packets_lost = line
+                .split(':')
+                .nth(1)
+                .unwrap_or("")
+                .trim()
+                .parse()
+                .unwrap_or(0);
         } else if line.contains("Line filter status") {
             data.eeg_settings.line_filter = line.contains("ON");
         } else if line.contains("FIR filter status") {
@@ -181,29 +237,31 @@ impl EEGData {
             }
         } else if line.contains("Channel") {
             let parts: Vec<&str> = line.split(':').collect();
-            let channel_number = parts[0].split_whitespace().nth(1).unwrap_or("").trim().parse().unwrap_or(0);
+            let channel_number = parts[0]
+                .split_whitespace()
+                .nth(1)
+                .unwrap_or("")
+                .trim()
+                .parse()
+                .unwrap_or(0);
             let electrode = parts[1].trim().to_string();
             data.eeg_settings.montage.insert(channel_number, electrode);
         }
     }
 
+    /// Parses the 'Trigger information' section of the file.
     fn parse_trigger_info(line: &str, data: &mut EEGData) {
-        // We will check if the line contains trigger information, 
-        // specifically looking for the "Code" and "Description" keywords.
+        // Skip header if found.
         if line.contains("Code") && line.contains("Description") {
-            // This line might be the header, so we can skip it.
             return;
         }
-    
-        // If the line contains a trigger code and description, we will try to extract them.
+
+        // Parse trigger code and description.
         let parts: Vec<&str> = line.split_whitespace().collect();
-    
+
         if parts.len() >= 2 {
-            // The first part should be the trigger code, the rest should be the description.
             if let Ok(code) = parts[0].parse::<u32>() {
-                // Join the rest of the parts as the description
                 let description = parts[1..].join(" ");
-                // Insert the code and description into the triggers HashMap
                 data.trigger_info.triggers.insert(code, description);
             }
         }
