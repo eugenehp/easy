@@ -1,7 +1,15 @@
 [package]
-name = "easy"
-version = "0.1.0"
+name = "easy-rs"
+version = "0.0.1"
 edition = "2021"
+description = "A Rust library for reading and processing EEG and accelerometer data from .easy files."
+category = "Data Processing"
+authors = ["Eugene Hauptmann"]
+license = "MIT"
+repository = "https://github.com/eugenehp/easy"
+readme = "README.md"
+documentation = "https://docs.rs/easy"  # Replace with actual docs URL once available
+keywords = ["EEG", "data", "accelerometer", "file parsing", "rust"]
 
 [dependencies]
 anyhow = "1.0.95"

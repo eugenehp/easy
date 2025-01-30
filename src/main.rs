@@ -1,5 +1,5 @@
 use anyhow::Result;
-use easy::{easy_reader::EasyReader, info::EEGData};
+use easy_rs::{easy_reader::EasyReader, info::EEGData};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let filename = "data/Example01.info";
