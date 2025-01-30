@@ -105,6 +105,7 @@ pub struct EasyReader {
     log: Vec<String>,
 }
 impl EasyReader {
+    /// Initializes a new `EasyReader` instance from the given file path.
     pub fn new(filepath: &str, verbose: bool) -> Result<Self> {
         if verbose {
             println!("Initializing in file path: {}", filepath);
@@ -167,6 +168,7 @@ impl EasyReader {
         Ok(reader)
     }
 
+    /// Reads and processes the `.info` file for metadata about channels and accelerometer data.
     fn get_info(&mut self) -> Result<()> {
         let file = File::open(&self.infofilepath);
 
@@ -200,6 +202,7 @@ impl EasyReader {
         }
     }
 
+    /// Reads the `.easy` file to determine the number of channels based on the file structure.
     fn read_easy_file_for_channels(&mut self) -> Result<()> {
         let reader = self.get_file_reader(&self.filepath)?;
 
