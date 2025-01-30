@@ -1,13 +1,15 @@
 use anyhow::Result;
-use easy::{easy_reader, info::EEGData};
+use easy::{easy_reader::EasyReader, info::EEGData};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // let filename = "data/Example01.info";
-    // let data = EEGData::parse_file(filename)?;
+    let filename = "data/Example01.info";
+    let data = EEGData::parse_file(filename)?;
+    println!("{data:#?}");
 
     let filename = "data/Example01.easy";
-    let reader = easy_reader::EasyReader::new(filename)?;
+    let reader = EasyReader::new(filename, false)?;
 
+    reader.print_summary();
     println!("{reader:#?}");
 
     Ok(())

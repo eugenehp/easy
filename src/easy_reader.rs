@@ -5,7 +5,7 @@ extern crate serde;
 
 use anyhow::{anyhow, Result};
 use chrono::{NaiveDateTime, Utc};
-use ndarray::Array2;
+use ndarray::{s, Array2};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
@@ -22,6 +22,7 @@ const DELIMITER: u8 = b'\t';
 #[derive(Debug)]
 #[allow(dead_code)]
 pub struct EasyReader {
+    verbose: bool,
     /// Path to the `.easy` file being read.
     ///
     /// This is the full path to the `.easy` file that contains the EEG and accelerometer data.
@@ -113,8 +114,10 @@ pub struct EasyReader {
     log: Vec<String>,
 }
 impl EasyReader {
-    pub fn new(filepath: &str) -> Result<Self> {
-        println!("Initializing in file path: {}", filepath);
+    pub fn new(filepath: &str, verbose: bool) -> Result<Self> {
+        if verbose {
+            println!("Initializing in file path: {}", filepath);
+        }
 
         let extension;
         let (filenameroot, basename) = if filepath.ends_with(".easy.gz") {
@@ -146,6 +149,7 @@ impl EasyReader {
         let infofilepath = format!("{}.info", filenameroot);
 
         let mut reader = EasyReader {
+            verbose,
             filepath: filepath.to_string(),
             basename,
             extension,
@@ -165,7 +169,7 @@ impl EasyReader {
         };
 
         // Try to read the info file
-        reader.get_info();
+        reader.get_info()?;
 
         // Then read the easy data
         reader.get_l0_data()?;
@@ -265,7 +269,9 @@ impl EasyReader {
         let mut records = rdr.records();
         let first_record = records.next().unwrap().unwrap();
 
-        println!("first_record - {first_record:?}");
+        if self.verbose {
+            println!("first_record - {first_record:?}");
+        }
 
         let num_columns = first_record.len();
 
@@ -282,11 +288,13 @@ impl EasyReader {
         let start_date = NaiveDateTime::from_timestamp((timestamp / 1000) as i64, 0);
         self.eegstartdate = Some(start_date.format("%Y-%m-%d %H:%M:%S").to_string());
 
-        println!("Number of channels detected: {}", num_channels);
-        println!(
-            "First sample recorded: {}",
-            self.eegstartdate.clone().unwrap()
-        );
+        if self.verbose {
+            println!("Number of channels detected: {}", num_channels);
+            println!(
+                "First sample recorded: {}",
+                self.eegstartdate.clone().unwrap()
+            );
+        }
 
         // Read the rest of the file into numpy-like data
         let mut eeg_data = Vec::new();
@@ -330,5 +338,83 @@ impl EasyReader {
         self.np_markers = Some(Array2::from_shape_vec((markers.len(), 1), markers).unwrap());
 
         Ok(())
+    }
+
+    /// Prints a summary of the `EasyReader` instance, displaying important metadata and previews of data.
+    ///
+    /// This function outputs the file path, base name, extension, number of channels, EEG start date,
+    /// and any log entries related to the processing steps. It also prints the first few rows of the EEG,
+    /// accelerometer, and markers data, if available. This method avoids printing the entire datasets.
+    pub fn print_summary(&self) {
+        // Print metadata
+        println!("File Path: {}", self.filepath);
+        println!("Base Name: {}", self.basename);
+        println!("Extension: {}", self.extension);
+
+        match &self.num_channels {
+            Some(channels) => println!("Number of Channels: {}", channels),
+            None => println!("Number of Channels: Not available"),
+        }
+
+        match &self.eegstartdate {
+            Some(start_date) => println!("EEG Start Date: {}", start_date),
+            None => println!("EEG Start Date: Not available"),
+        }
+
+        // Print a preview of EEG data (first 5 samples)
+        println!("\nEEG Data (First 5 Samples):");
+        match &self.np_eeg {
+            Some(eeg) => {
+                let preview: Vec<Vec<f32>> = eeg
+                    .slice(s![..5, ..]) // Get the first 5 rows and all columns
+                    .axis_iter(ndarray::Axis(0)) // Iterate over rows
+                    .map(|row| row.to_owned().to_vec()) // Convert each row into a Vec<f32>
+                    .collect(); // Collect all rows into a Vec<Vec<f32>>
+
+                for (i, row) in preview.iter().enumerate() {
+                    println!("Sample {}: {:?}", i + 1, row);
+                }
+            }
+            None => println!("EEG Data: Not available"),
+        }
+
+        // Print a preview of accelerometer data (first 5 samples if available)
+        println!("\nAccelerometer Data (First 5 Samples):");
+        match &self.np_acc {
+            Some(acc) => {
+                let preview: Vec<Vec<f32>> = acc
+                    .slice(s![..5, ..]) // Get the first 5 rows and all columns
+                    .axis_iter(ndarray::Axis(0)) // Iterate over rows
+                    .map(|row| row.to_owned().to_vec()) // Convert each row into a Vec<f32>
+                    .collect(); // Collect all rows into a Vec<Vec<f32>>
+
+                for (i, row) in preview.iter().enumerate() {
+                    println!("Sample {}: {:?}", i + 1, row);
+                }
+            }
+            None => println!("Accelerometer Data: Not available"),
+        }
+
+        // Print a preview of markers (first 5 samples if available)
+        println!("\nMarkers Data (First 5 Samples):");
+        match &self.np_markers {
+            Some(markers) => {
+                let (preview, _) = markers
+                    .slice(s![..5, ..]) // Get the first 5 elements
+                    .to_owned() // Copy the values from the slice
+                    .into_raw_vec_and_offset(); // Convert it into a Vec<f32>
+
+                for (i, marker) in preview.iter().enumerate() {
+                    println!("Marker {}: {}", i + 1, marker);
+                }
+            }
+            None => println!("Markers Data: Not available"),
+        }
+
+        // Print log entries
+        println!("\nLog Entries:");
+        for entry in &self.log {
+            println!("- {}", entry);
+        }
     }
 }
