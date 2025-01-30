@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use chrono::{NaiveDateTime, Utc};
+use chrono::{DateTime, Utc};
 use flate2::read::GzDecoder;
 use ndarray::{s, Array2};
 use std::fs::File;
@@ -274,8 +274,9 @@ impl EasyReader {
 
         // Handle timestamp
         let timestamp = first_record[first_record.len() - 1].parse::<u64>().unwrap();
-        let start_date = NaiveDateTime::from_timestamp((timestamp / 1000) as i64, 0);
-        self.eegstartdate = Some(start_date.format("%Y-%m-%d %H:%M:%S").to_string());
+        if let Some(start_date) = DateTime::from_timestamp((timestamp / 1000) as i64, 0) {
+            self.eegstartdate = Some(start_date.format("%Y-%m-%d %H:%M:%S").to_string());
+        }
 
         if self.verbose {
             println!("Number of channels detected: {}", num_channels);
