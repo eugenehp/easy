@@ -65,7 +65,7 @@ impl EEGData {
         EEGData {
             device_info: DeviceInfo {
                 version: String::new(),
-                start_date: Some(Utc::now()),
+                start_date: None,
                 device_class: String::new(),
                 communication_type: String::new(),
                 device_id: String::new(),
@@ -265,5 +265,183 @@ impl EEGData {
                 data.trigger_info.triggers.insert(code, description);
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::TimeZone;
+
+    // Helper function to create a sample EEG file.
+    fn create_sample_file() -> String {
+        let file_content = r#"
+        Step Details
+        Info Version: 1.0
+        StartDate: 1609459200000
+        Device class: EEG
+        Communication type: Bluetooth
+        Device ID: 123456
+        Software's version: 1.0.0
+        Firmware's version: 1.0.1
+        Operative system: Linux
+        SDCard Filename: eegd_data.txt
+        Additional channel: Channel_Extra
+
+        EEG Settings
+        Total number of channels: 8
+        Number of EEG channels: 4
+        Number of records of EEG: 1000
+        EEG sampling rate: 250.0
+        EEG recording configured duration: 3600
+        Number of packets lost: 0
+        Line filter status: ON
+        FIR filter status: OFF
+        EOG correction filter status: ON
+        Reference filter status: OFF
+        EEG units: µV
+        Accelerometer data: ON
+        Channel 1: Fp1
+        Channel 2: Fp2
+        Channel 3: F3
+        Channel 4: F4
+
+        Trigger information
+        Code Description
+        1 Start of EEG
+        2 End of EEG
+        "#;
+
+        let filename = "sample_eeg_data.txt";
+        std::fs::write(filename, file_content).unwrap();
+        filename.to_string()
+    }
+
+    // Test for parsing EEG data file
+    #[test]
+    fn test_parse_file() {
+        let filename = create_sample_file();
+        let eeg_data = EEGData::parse_file(&filename).unwrap();
+
+        // Test Device Info parsing
+        assert_eq!(eeg_data.device_info.version, "1.0");
+        assert_eq!(eeg_data.device_info.device_class, "EEG");
+        assert_eq!(eeg_data.device_info.communication_type, "Bluetooth");
+        assert_eq!(eeg_data.device_info.device_id, "123456");
+        assert_eq!(eeg_data.device_info.software_version, "1.0.0");
+        assert_eq!(eeg_data.device_info.firmware_version, "1.0.1");
+        assert_eq!(eeg_data.device_info.os, "Linux");
+        assert_eq!(eeg_data.device_info.sdcard_filename, "eegd_data.txt");
+        assert_eq!(eeg_data.device_info.additional_channel, "Channel_Extra");
+
+        // Test EEG Settings parsing
+        assert_eq!(eeg_data.eeg_settings.total_channels, 8);
+        assert_eq!(eeg_data.eeg_settings.eeg_channels, 4);
+        assert_eq!(eeg_data.eeg_settings.records, 1000);
+        assert_eq!(eeg_data.eeg_settings.sampling_rate, 250.0);
+        assert_eq!(eeg_data.eeg_settings.configured_duration, 3600);
+        assert_eq!(eeg_data.eeg_settings.packets_lost, 0);
+        assert!(eeg_data.eeg_settings.line_filter);
+        assert!(!eeg_data.eeg_settings.fir_filter);
+        assert!(eeg_data.eeg_settings.eog_correction);
+        assert!(!eeg_data.eeg_settings.reference_filter);
+        assert_eq!(eeg_data.eeg_settings.eeg_units, "µV");
+
+        // Test Accelerometer data
+        assert!(eeg_data.eeg_settings.accelerometer.is_some());
+        let accelerometer = eeg_data.eeg_settings.accelerometer.as_ref().unwrap();
+        assert_eq!(accelerometer.channels, 3);
+        assert_eq!(accelerometer.sampling_rate, 100.0);
+        assert_eq!(accelerometer.units, "mm/s^2");
+
+        // Test Montage parsing
+        assert_eq!(
+            eeg_data.eeg_settings.montage.get(&1),
+            Some(&"Fp1".to_string())
+        );
+        assert_eq!(
+            eeg_data.eeg_settings.montage.get(&2),
+            Some(&"Fp2".to_string())
+        );
+        assert_eq!(
+            eeg_data.eeg_settings.montage.get(&3),
+            Some(&"F3".to_string())
+        );
+        assert_eq!(
+            eeg_data.eeg_settings.montage.get(&4),
+            Some(&"F4".to_string())
+        );
+
+        // Test Trigger Information parsing
+        assert_eq!(eeg_data.trigger_info.triggers.len(), 2);
+        assert_eq!(
+            eeg_data.trigger_info.triggers.get(&1),
+            Some(&"Start of EEG".to_string())
+        );
+        assert_eq!(
+            eeg_data.trigger_info.triggers.get(&2),
+            Some(&"End of EEG".to_string())
+        );
+
+        // Clean up the sample file
+        std::fs::remove_file(filename).unwrap();
+    }
+
+    // Test parsing when the file is empty
+    #[test]
+    fn test_parse_empty_file() {
+        let filename = "empty_file.txt";
+        std::fs::write(filename, "").unwrap();
+
+        let eeg_data = EEGData::parse_file(filename).unwrap();
+        assert_eq!(eeg_data.device_info.version, "");
+        assert_eq!(eeg_data.eeg_settings.total_channels, 0);
+        assert_eq!(eeg_data.trigger_info.triggers.len(), 0);
+
+        std::fs::remove_file(filename).unwrap();
+    }
+
+    // Test parsing when a field is missing (e.g., missing "StartDate" in the Step Details section)
+    #[test]
+    fn test_parse_missing_field() {
+        let file_content = r#"
+        Step Details
+        Info Version: 1.0
+        Device class: EEG
+        Communication type: Bluetooth
+        Device ID: 123456
+        Software's version: 1.0.0
+        Firmware's version: 1.0.1
+        Operative system: Linux
+        SDCard Filename: eegd_data.txt
+        Additional channel: Channel_Extra
+
+        EEG Settings
+        Total number of channels: 8
+        Number of EEG channels: 4
+        Number of records of EEG: 1000
+        EEG sampling rate: 250.0
+        EEG recording configured duration: 3600
+        Number of packets lost: 0
+        Line filter status: ON
+        FIR filter status: OFF
+        EOG correction filter status: ON
+        Reference filter status: OFF
+        EEG units: µV
+        Accelerometer data: ON
+
+        Trigger information
+        Code Description
+        1 Start of EEG
+        2 End of EEG
+        "#;
+
+        let filename = "missing_start_date.txt";
+        std::fs::write(filename, file_content).unwrap();
+
+        let eeg_data = EEGData::parse_file(filename).unwrap();
+        assert!(eeg_data.device_info.start_date.is_none());
+
+        std::fs::remove_file(filename).unwrap();
     }
 }
