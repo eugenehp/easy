@@ -363,11 +363,13 @@ impl EasyReader {
         }
 
         // Print a preview of EEG data (first 5 samples)
-        println!("\nEEG Data (First 5 Samples):");
         match &self.np_eeg {
             Some(eeg) => {
+                let total_samples = eeg.shape()[0];
+                println!("\nEEG Data (First 5 of {total_samples} Samples):");
+                let preview_count = total_samples.min(5); // Preview the first 5 samples or total samples if less than 5
                 let preview: Vec<Vec<f32>> = eeg
-                    .slice(s![..5, ..]) // Get the first 5 rows and all columns
+                    .slice(s![..preview_count, ..]) // Get the first `preview_count` rows and all columns
                     .axis_iter(ndarray::Axis(0)) // Iterate over rows
                     .map(|row| row.to_owned().to_vec()) // Convert each row into a Vec<f32>
                     .collect(); // Collect all rows into a Vec<Vec<f32>>
@@ -375,16 +377,22 @@ impl EasyReader {
                 for (i, row) in preview.iter().enumerate() {
                     println!("Sample {}: {:?}", i + 1, row);
                 }
+                println!(
+                    "Showing {} out of {} EEG samples.",
+                    preview_count, total_samples
+                );
             }
             None => println!("EEG Data: Not available"),
         }
 
         // Print a preview of accelerometer data (first 5 samples if available)
-        println!("\nAccelerometer Data (First 5 Samples):");
         match &self.np_acc {
             Some(acc) => {
+                let total_samples = acc.shape()[0];
+                println!("\nAccelerometer Data (First 5 of {total_samples} Samples):");
+                let preview_count = total_samples.min(5); // Preview the first 5 samples or total samples if less than 5
                 let preview: Vec<Vec<f32>> = acc
-                    .slice(s![..5, ..]) // Get the first 5 rows and all columns
+                    .slice(s![..preview_count, ..]) // Get the first `preview_count` rows and all columns
                     .axis_iter(ndarray::Axis(0)) // Iterate over rows
                     .map(|row| row.to_owned().to_vec()) // Convert each row into a Vec<f32>
                     .collect(); // Collect all rows into a Vec<Vec<f32>>
@@ -397,11 +405,13 @@ impl EasyReader {
         }
 
         // Print a preview of markers (first 5 samples if available)
-        println!("\nMarkers Data (First 5 Samples):");
         match &self.np_markers {
             Some(markers) => {
+                let total_samples = markers.shape()[0];
+                println!("\nMarkers Data (First 5 of {total_samples} Samples):");
+                let preview_count = total_samples.min(5); // Preview the first 5 samples or total samples if less than 5
                 let (preview, _) = markers
-                    .slice(s![..5, ..]) // Get the first 5 elements
+                    .slice(s![..preview_count, ..]) // Get the first `preview_count` elements
                     .to_owned() // Copy the values from the slice
                     .into_raw_vec_and_offset(); // Convert it into a Vec<f32>
 

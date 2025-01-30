@@ -10,7 +10,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let reader = EasyReader::new(filename, false)?;
 
     reader.print_summary();
-    println!("{reader:#?}");
+    // println!("{reader:#?}");
 
     Ok(())
 }
