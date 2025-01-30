@@ -99,6 +99,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 For any questions or feedback, feel free to open an issue on the [GitHub repository](https://github.com/eugenehp/easy).
 
+## Thank you
+
+Inspired by [NEPy](https://github.com/Neuroelectrics/NEPy)
+
 ## Copyright
 
 2025, Eugene Hauptmann
