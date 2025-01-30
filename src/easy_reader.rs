@@ -46,11 +46,6 @@ pub struct EasyReader {
     /// If available, this file provides information about the electrode names and other metadata.
     infofilepath: String,
 
-    /// Sampling frequency of the data in Hz.
-    ///
-    /// The default is 500 Hz, but it could vary depending on the device and data format.
-    fs: f64,
-
     /// Flag indicating whether accelerometer data is present.
     ///
     /// This flag is set to `true` if accelerometer data is found in the `.easy` file or the `.info` file.
@@ -151,7 +146,6 @@ impl EasyReader {
             extension,
             filenameroot,
             infofilepath,
-            fs: 500.0,
             acc_data: false,
             electrodes: Vec::new(),
             num_channels: None,
