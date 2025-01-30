@@ -12,7 +12,7 @@ const DELIMITER: u8 = b'\t';
 ///
 /// This struct is responsible for parsing and storing the data from a `.easy` file,
 /// which may include EEG signals, accelerometer data, and associated markers. The struct
-/// loads the data from both `.easy` and optional `.info` files, provides methods for
+/// loads the data from `.easy` and `.easy.gz` and optional `.info` files, provides methods for
 /// accessing the data, and tracks relevant metadata about the file, including the
 /// start date and number of channels.
 #[derive(Debug)]
@@ -104,6 +104,7 @@ pub struct EasyReader {
     /// and when key steps in the file processing were completed. This can be useful for debugging and tracking processing.
     log: Vec<String>,
 }
+
 impl EasyReader {
     /// Initializes a new `EasyReader` instance from the given file path.
     pub fn new(filepath: &str, verbose: bool) -> Result<Self> {
