@@ -13,11 +13,11 @@
 
 ## Installation
 
-To add the `easy` library to your project, include it as a dependency in your `Cargo.toml`:
+To add the `easy-rs` library to your project, include it as a dependency in your `Cargo.toml`:
 
 ```toml
 [dependencies]
-easy = "0.0.1"
+easy-rs = "0.0.1"
 ```
 
 Alternatively, you can clone the repository directly and build from source:
