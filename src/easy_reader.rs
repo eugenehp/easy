@@ -1,13 +1,9 @@
-extern crate chrono;
-extern crate csv;
-extern crate ndarray;
-extern crate serde;
-
 use anyhow::{anyhow, Result};
 use chrono::{NaiveDateTime, Utc};
+use flate2::read::GzDecoder;
 use ndarray::{s, Array2};
 use std::fs::File;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Read};
 use std::path::Path;
 
 const DELIMITER: u8 = b'\t';
@@ -211,8 +207,8 @@ impl EasyReader {
     }
 
     fn read_easy_file_for_channels(&mut self) -> Result<()> {
-        let file = File::open(&self.filepath).map_err(|e| anyhow!(e.to_string()))?;
-        let reader = BufReader::new(file);
+        let reader = self.get_file_reader(&self.filepath)?;
+
         let mut rdr = csv::ReaderBuilder::new()
             .delimiter(DELIMITER)
             .has_headers(false)
@@ -259,8 +255,7 @@ impl EasyReader {
     ///   of three columns representing X, Y, and Z axes.
 
     fn get_l0_data(&mut self) -> Result<()> {
-        let file = File::open(&self.filepath).map_err(|e| anyhow!(e.to_string()))?;
-        let reader = BufReader::new(file);
+        let reader = self.get_file_reader(&self.filepath)?;
         let mut rdr = csv::ReaderBuilder::new()
             .delimiter(DELIMITER)
             .has_headers(false)
@@ -338,6 +333,18 @@ impl EasyReader {
         self.np_markers = Some(Array2::from_shape_vec((markers.len(), 1), markers).unwrap());
 
         Ok(())
+    }
+
+    /// Helper function to get a reader for the file, whether it's gzipped or not.
+    fn get_file_reader(&self, filepath: &str) -> Result<Box<dyn Read>> {
+        if filepath.ends_with(".gz") {
+            let file = File::open(filepath).map_err(|e| anyhow!(e.to_string()))?;
+            let decoder = GzDecoder::new(file);
+            Ok(Box::new(decoder))
+        } else {
+            let file = File::open(filepath).map_err(|e| anyhow!(e.to_string()))?;
+            Ok(Box::new(file))
+        }
     }
 
     /// Prints a summary of the `EasyReader` instance, displaying important metadata and previews of data.
