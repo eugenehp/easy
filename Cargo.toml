@@ -9,7 +9,7 @@ license = "MIT"
 repository = "https://github.com/eugenehp/easy"
 readme = "README.md"
 documentation = "https://docs.rs/easy-rs"
-keywords = ["EEG", "data", "accelerometer", "file parsing", "rust"]
+keywords = ["EEG", "data", "accelerometer", "parsing", "rust"]
 
 [dependencies]
 anyhow = "1.0.95"
