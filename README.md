@@ -17,7 +17,7 @@ To add the `easy-rs` library to your project, include it as a dependency in your
 
 ```toml
 [dependencies]
-easy-rs = "0.0.2"
+easy-rs = "0.0.3"
 ```
 
 Alternatively, you can clone the repository directly and build from source:

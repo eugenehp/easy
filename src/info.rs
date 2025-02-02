@@ -1,5 +1,6 @@
 use anyhow::Result;
 use chrono::{DateTime, MappedLocalTime, TimeZone, Utc};
+use regex::Regex;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{self, BufRead};
@@ -193,13 +194,19 @@ impl EEGData {
                 .parse()
                 .unwrap_or(0);
         } else if line.contains("EEG sampling rate") {
-            data.eeg_settings.sampling_rate = line
-                .split(':')
-                .nth(1)
-                .unwrap_or("")
-                .trim()
-                .parse()
-                .unwrap_or(0.0);
+            let re = Regex::new(r"(\d+)\s*Samples/second").unwrap();
+
+            // Try to find a match in the input string
+            let sample_rate = if let Some(captures) = re.captures(&line) {
+                // Extract the first capture group and convert it to a f64
+                captures[1].parse::<f32>().ok()
+            } else {
+                None
+            };
+
+            if sample_rate.is_some() {
+                data.eeg_settings.sampling_rate = sample_rate.unwrap();
+            }
         } else if line.contains("EEG recording configured duration") {
             data.eeg_settings.configured_duration = line
                 .split(':')
