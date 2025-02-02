@@ -1,6 +1,6 @@
 [package]
 name = "easy-rs"
-version = "0.0.3"
+version = "0.0.4"
 edition = "2021"
 description = "A Rust library for reading and processing EEG and accelerometer data from .easy files."
 category = "Data Processing"
