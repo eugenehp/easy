@@ -160,17 +160,11 @@ impl EasyReader {
             log: vec![format!("capsule created: {}", Utc::now())],
         };
 
-        // Try to read the info file
-        reader.get_info()?;
-
-        // Then read the easy data
-        reader.get_l0_data()?;
-
         Ok(reader)
     }
 
     /// Reads and processes the `.info` file for metadata about channels and accelerometer data.
-    fn get_info(&mut self) -> Result<()> {
+    pub fn get_info(&mut self) -> Result<()> {
         let file = File::open(&self.infofilepath);
 
         match file {
@@ -252,7 +246,7 @@ impl EasyReader {
     /// - The EEG data is divided by channels, and the accelerometer data (if present) consists
     ///   of three columns representing X, Y, and Z axes.
 
-    fn get_l0_data(&mut self) -> Result<()> {
+    pub fn get_l0_data(&mut self) -> Result<()> {
         let reader = self.get_file_reader(&self.filepath)?;
         let mut rdr = csv::ReaderBuilder::new()
             .delimiter(DELIMITER)
@@ -330,6 +324,121 @@ impl EasyReader {
             .unwrap(),
         );
         self.np_markers = Some(Array2::from_shape_vec((markers.len(), 1), markers).unwrap());
+
+        Ok(())
+    }
+
+    /// Reads and processes raw EEG and accelerometer data from the `.easy` file in a streaming manner.
+    ///
+    /// This function reads the `.easy` file in chunks and processes each chunk as it is read. This approach
+    /// helps to minimize memory usage when dealing with large files by avoiding the need to load the entire
+    /// file into memory at once.
+    ///
+    /// The function uses a callback (`process_chunk`) to handle each chunk of data. The callback is invoked
+    /// after processing each chunk, and it receives the following data:
+    /// - `eeg_chunk`: A `Vec<Vec<f32>>` representing a chunk of EEG data (one row per sample, one column per channel).
+    /// - `acc_chunk`: A `Vec<Vec<f32>>` representing a chunk of accelerometer data (three values per sample: X, Y, Z).
+    /// - `markers_chunk`: A `Vec<f32>` representing the marker data for each sample in the chunk.
+    ///
+    /// The chunk size can be customized by passing a `chunk_size` value (in number of rows). If no chunk size
+    /// is provided, the default chunk size will be `1000` rows.
+    ///
+    /// # Parameters:
+    /// - `chunk_size`: An optional parameter specifying the number of rows to process per chunk. If `None`
+    ///   is provided, the default chunk size will be `1000`.
+    /// - `process_chunk`: A callback function that takes three arguments: `eeg_chunk`, `acc_chunk`, and
+    ///   `markers_chunk`. This function will be called once a chunk is read and parsed.
+    ///
+    /// # Returns:
+    /// - `Ok(())` if the data was successfully read and processed.
+    /// - `Err(String)` if there was an error
+    pub fn get_l0_data_streaming<F>(
+        &mut self,
+        chunk_size: Option<usize>,
+        mut process_chunk: F,
+    ) -> Result<()>
+    where
+        F: FnMut(Vec<Vec<f32>>, Vec<Vec<f32>>, Vec<f32>), // Callback to process each chunk of data
+    {
+        let chunk_size = match chunk_size {
+            Some(chunk_size) => chunk_size,
+            None => 1000,
+        };
+        let reader = self.get_file_reader(&self.filepath)?;
+        let mut rdr = csv::ReaderBuilder::new()
+            .delimiter(DELIMITER)
+            .has_headers(false)
+            .from_reader(reader);
+
+        let mut records = rdr.records();
+        let first_record = records.next().unwrap().unwrap();
+
+        let num_columns = first_record.len();
+        let num_channels = if [13, 25, 37].contains(&num_columns) {
+            num_columns - 5
+        } else if [10, 22, 34].contains(&num_columns) {
+            num_columns - 2
+        } else {
+            return Err(anyhow!("Number of columns mismatch with expected values."));
+        };
+
+        // Handle timestamp
+        let timestamp = first_record[first_record.len() - 1].parse::<u64>().unwrap();
+        if let Some(start_date) = DateTime::from_timestamp((timestamp / 1000) as i64, 0) {
+            self.eegstartdate = Some(start_date.format("%Y-%m-%d %H:%M:%S").to_string());
+        }
+
+        if self.verbose {
+            println!(
+                "First sample recorded: {}",
+                self.eegstartdate.clone().unwrap()
+            );
+        }
+
+        // Process the records in chunks
+        let mut eeg_chunk = Vec::new();
+        let mut acc_chunk = Vec::new();
+        let mut markers_chunk = Vec::new();
+
+        for record in records {
+            let record = record.unwrap();
+
+            // Process EEG data (channels)
+            let eeg_values: Vec<f32> = record
+                .iter()
+                .take(num_channels)
+                .map(|x| x.parse::<f32>().unwrap())
+                .collect();
+            eeg_chunk.push(eeg_values);
+
+            // Process accelerometer data (3 axes)
+            let acc_values: Vec<f32> = record
+                .iter()
+                .skip(num_channels)
+                .take(3)
+                .map(|x| x.parse::<f32>().unwrap())
+                .collect();
+            acc_chunk.push(acc_values);
+
+            // Process marker data
+            let marker_value: f32 = record[num_channels + 3].parse().unwrap();
+            markers_chunk.push(marker_value);
+
+            // Once a chunk is ready, call the callback to process the chunk
+            if eeg_chunk.len() >= chunk_size {
+                // Process every 1000 rows as a chunk
+                process_chunk(eeg_chunk.clone(), acc_chunk.clone(), markers_chunk.clone());
+                // Clear the chunk data after processing
+                eeg_chunk.clear();
+                acc_chunk.clear();
+                markers_chunk.clear();
+            }
+        }
+
+        // Process any remaining data in the chunk
+        if !eeg_chunk.is_empty() {
+            process_chunk(eeg_chunk, acc_chunk, markers_chunk);
+        }
 
         Ok(())
     }
