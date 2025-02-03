@@ -8,7 +8,6 @@ use std::path::Path;
 
 const DELIMITER: u8 = b'\t';
 pub type Float = f64;
-const UV_SCALE: Float = 1000.0;
 
 /// Struct representing a reader for EEG data stored in `.easy` files.
 ///
@@ -20,7 +19,11 @@ const UV_SCALE: Float = 1000.0;
 #[derive(Debug)]
 #[allow(dead_code)]
 pub struct EasyReader {
+    /// scale used to divide raw eeg values
+    scale: Float,
+
     verbose: bool,
+
     /// Path to the `.easy` file being read.
     ///
     /// This is the full path to the `.easy` file that contains the EEG and accelerometer data.
@@ -109,7 +112,7 @@ pub struct EasyReader {
 
 impl EasyReader {
     /// Initializes a new `EasyReader` instance from the given file path.
-    pub fn new(filepath: &str, verbose: bool) -> Result<Self> {
+    pub fn new(filepath: &str, scale: Float, verbose: bool) -> Result<Self> {
         if verbose {
             println!("Initializing in file path: {}", filepath);
         }
@@ -144,6 +147,7 @@ impl EasyReader {
         let infofilepath = format!("{}.info", filenameroot);
 
         let mut reader = EasyReader {
+            scale,
             verbose,
             filepath: filepath.to_string(),
             basename,
@@ -300,7 +304,7 @@ impl EasyReader {
                 .iter()
                 .take(num_channels)
                 .map(|x| x.parse::<Float>().unwrap())
-                .map(|f| f / UV_SCALE)
+                .map(|f| f / self.scale)
                 .collect();
             let acc_values: Vec<Float> = record
                 .iter()
@@ -410,7 +414,7 @@ impl EasyReader {
                 .iter()
                 .take(num_channels)
                 .map(|x| x.parse::<Float>().unwrap())
-                .map(|f| f / UV_SCALE)
+                .map(|f| f / self.scale)
                 .collect();
             eeg_chunk.push(eeg_values);
 

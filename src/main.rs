@@ -8,7 +8,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let filename = "data/Example01.easy";
     // let filename = "data/Example01.easy.gz";
-    let mut reader = EasyReader::new(filename, false)?;
+    let mut reader = EasyReader::new(filename, 1.0, false)?;
 
     // Then read the easy data, all at once
     // reader.parse_data()?;
