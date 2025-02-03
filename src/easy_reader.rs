@@ -7,6 +7,7 @@ use std::io::{BufRead, BufReader, Read};
 use std::path::Path;
 
 const DELIMITER: u8 = b'\t';
+pub type Float = f64;
 
 /// Struct representing a reader for EEG data stored in `.easy` files.
 ///
@@ -72,31 +73,31 @@ pub struct EasyReader {
     /// Array representing the time vector of the dataset in seconds.
     ///
     /// This array contains the time of each sample relative to the start of the recording.
-    np_time: Option<Array2<f32>>,
+    np_time: Option<Array2<Float>>,
 
     /// 2D array of EEG data.
     ///
     /// This is a 2D array where each row represents an EEG sample, and each column represents
     /// an individual channel (electrode). The data is in microvolts (uV).
-    np_eeg: Option<Array2<f32>>,
+    np_eeg: Option<Array2<Float>>,
 
     /// 2D array of stimulus data (optional).
     ///
     /// If present, this array contains stimulus information related to the EEG recording. It is typically used
     /// for event-marking or stimulus presentation data, but it may not always be available.
-    np_stim: Option<Array2<f32>>,
+    np_stim: Option<Array2<Float>>,
 
     /// 2D array of accelerometer data.
     ///
     /// If accelerometer data is available, this array will contain the 3-axis accelerometer readings for each sample.
     /// The data represents the X, Y, and Z axes of the accelerometer. The array has shape `(num_samples, 3)`.
-    np_acc: Option<Array2<f32>>,
+    np_acc: Option<Array2<Float>>,
 
     /// Array of markers associated with the EEG data.
     ///
     /// This array holds marker values that can represent events, triggers, or annotations
     /// in the EEG signal. Markers are typically used to mark specific moments in time during the recording.
-    np_markers: Option<Array2<f32>>,
+    np_markers: Option<Array2<Float>>,
 
     /// Log of the events related to the processing of the `.easy` file.
     ///
@@ -160,11 +161,14 @@ impl EasyReader {
             log: vec![format!("capsule created: {}", Utc::now())],
         };
 
+        // Try to read the info file
+        reader.get_info()?;
+
         Ok(reader)
     }
 
     /// Reads and processes the `.info` file for metadata about channels and accelerometer data.
-    pub fn get_info(&mut self) -> Result<()> {
+    fn get_info(&mut self) -> Result<()> {
         let file = File::open(&self.infofilepath);
 
         match file {
@@ -246,7 +250,7 @@ impl EasyReader {
     /// - The EEG data is divided by channels, and the accelerometer data (if present) consists
     ///   of three columns representing X, Y, and Z axes.
 
-    pub fn get_l0_data(&mut self) -> Result<()> {
+    pub fn parse_data(&mut self) -> Result<()> {
         let reader = self.get_file_reader(&self.filepath)?;
         let mut rdr = csv::ReaderBuilder::new()
             .delimiter(DELIMITER)
@@ -291,18 +295,18 @@ impl EasyReader {
 
         for record in records {
             let record = record.unwrap();
-            let eeg_values: Vec<f32> = record
+            let eeg_values: Vec<Float> = record
                 .iter()
                 .take(num_channels)
-                .map(|x| x.parse::<f32>().unwrap())
+                .map(|x| x.parse::<Float>().unwrap())
                 .collect();
-            let acc_values: Vec<f32> = record
+            let acc_values: Vec<Float> = record
                 .iter()
                 .skip(num_channels)
                 .take(3)
-                .map(|x| x.parse::<f32>().unwrap())
+                .map(|x| x.parse::<Float>().unwrap())
                 .collect();
-            let marker_value: f32 = record[num_channels + 3].parse().unwrap();
+            let marker_value: Float = record[num_channels + 3].parse().unwrap();
 
             eeg_data.push(eeg_values);
             acc_data.push(acc_values);
@@ -352,13 +356,9 @@ impl EasyReader {
     /// # Returns:
     /// - `Ok(())` if the data was successfully read and processed.
     /// - `Err(String)` if there was an error
-    pub fn get_l0_data_streaming<F>(
-        &mut self,
-        chunk_size: Option<usize>,
-        mut process_chunk: F,
-    ) -> Result<()>
+    pub fn stream<F>(&mut self, chunk_size: Option<usize>, mut process_chunk: F) -> Result<()>
     where
-        F: FnMut(Vec<Vec<f32>>, Vec<Vec<f32>>, Vec<f32>), // Callback to process each chunk of data
+        F: FnMut(Vec<Vec<Float>>, Vec<Vec<Float>>, Vec<Float>), // Callback to process each chunk of data
     {
         let chunk_size = match chunk_size {
             Some(chunk_size) => chunk_size,
@@ -404,24 +404,24 @@ impl EasyReader {
             let record = record.unwrap();
 
             // Process EEG data (channels)
-            let eeg_values: Vec<f32> = record
+            let eeg_values: Vec<Float> = record
                 .iter()
                 .take(num_channels)
-                .map(|x| x.parse::<f32>().unwrap())
+                .map(|x| x.parse::<Float>().unwrap())
                 .collect();
             eeg_chunk.push(eeg_values);
 
             // Process accelerometer data (3 axes)
-            let acc_values: Vec<f32> = record
+            let acc_values: Vec<Float> = record
                 .iter()
                 .skip(num_channels)
                 .take(3)
-                .map(|x| x.parse::<f32>().unwrap())
+                .map(|x| x.parse::<Float>().unwrap())
                 .collect();
             acc_chunk.push(acc_values);
 
             // Process marker data
-            let marker_value: f32 = record[num_channels + 3].parse().unwrap();
+            let marker_value: Float = record[num_channels + 3].parse().unwrap();
             markers_chunk.push(marker_value);
 
             // Once a chunk is ready, call the callback to process the chunk
@@ -482,11 +482,11 @@ impl EasyReader {
                 let total_samples = eeg.shape()[0];
                 println!("\nEEG Data (First 5 of {total_samples} Samples):");
                 let preview_count = total_samples.min(5); // Preview the first 5 samples or total samples if less than 5
-                let preview: Vec<Vec<f32>> = eeg
+                let preview: Vec<Vec<Float>> = eeg
                     .slice(s![..preview_count, ..]) // Get the first `preview_count` rows and all columns
                     .axis_iter(ndarray::Axis(0)) // Iterate over rows
-                    .map(|row| row.to_owned().to_vec()) // Convert each row into a Vec<f32>
-                    .collect(); // Collect all rows into a Vec<Vec<f32>>
+                    .map(|row| row.to_owned().to_vec()) // Convert each row into a Vec<Float>
+                    .collect(); // Collect all rows into a Vec<Vec<Float>>
 
                 for (i, row) in preview.iter().enumerate() {
                     println!("Sample {}: {:?}", i + 1, row);
@@ -505,11 +505,11 @@ impl EasyReader {
                 let total_samples = acc.shape()[0];
                 println!("\nAccelerometer Data (First 5 of {total_samples} Samples):");
                 let preview_count = total_samples.min(5); // Preview the first 5 samples or total samples if less than 5
-                let preview: Vec<Vec<f32>> = acc
+                let preview: Vec<Vec<Float>> = acc
                     .slice(s![..preview_count, ..]) // Get the first `preview_count` rows and all columns
                     .axis_iter(ndarray::Axis(0)) // Iterate over rows
                     .map(|row| row.to_owned().to_vec()) // Convert each row into a Vec<f32>
-                    .collect(); // Collect all rows into a Vec<Vec<f32>>
+                    .collect(); // Collect all rows into a Vec<Vec<Float>>
 
                 for (i, row) in preview.iter().enumerate() {
                     println!("Sample {}: {:?}", i + 1, row);
@@ -527,7 +527,7 @@ impl EasyReader {
                 let (preview, _) = markers
                     .slice(s![..preview_count, ..]) // Get the first `preview_count` elements
                     .to_owned() // Copy the values from the slice
-                    .into_raw_vec_and_offset(); // Convert it into a Vec<f32>
+                    .into_raw_vec_and_offset(); // Convert it into a Vec<Float>
 
                 for (i, marker) in preview.iter().enumerate() {
                     println!("Marker {}: {}", i + 1, marker);
