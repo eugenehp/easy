@@ -17,7 +17,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // println!("{reader:#?}");
 
     // a streaming example
-    reader.stream(Some(1), |eeg_chunk, acc_chunk, markers_chunk| {
+    reader.stream(Some(10000), |eeg_chunk, acc_chunk, markers_chunk| {
         // Process the chunk, for example, you could print the first few samples or store them
         println!("Processing chunk of size: {}", eeg_chunk.len());
         println!("First EEG sample: {:?}", eeg_chunk.first());

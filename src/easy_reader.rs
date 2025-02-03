@@ -8,6 +8,7 @@ use std::path::Path;
 
 const DELIMITER: u8 = b'\t';
 pub type Float = f64;
+const UV_SCALE: Float = 1000.0;
 
 /// Struct representing a reader for EEG data stored in `.easy` files.
 ///
@@ -299,6 +300,7 @@ impl EasyReader {
                 .iter()
                 .take(num_channels)
                 .map(|x| x.parse::<Float>().unwrap())
+                .map(|f| f / UV_SCALE)
                 .collect();
             let acc_values: Vec<Float> = record
                 .iter()
@@ -408,6 +410,7 @@ impl EasyReader {
                 .iter()
                 .take(num_channels)
                 .map(|x| x.parse::<Float>().unwrap())
+                .map(|f| f / UV_SCALE)
                 .collect();
             eeg_chunk.push(eeg_values);
 
