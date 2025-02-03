@@ -45,10 +45,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let filename = "data/Example01.easy";
     // let filename = "data/Example01.easy.gz";
-    let reader = EasyReader::new(filename, false)?;
+    let mut reader = EasyReader::new(filename, false)?;
 
-    reader.print_summary();
+    // Then read the easy data, all at once
+    // reader.parse_data()?;
+
+    // reader.print_summary();
     // println!("{reader:#?}");
+
+    // a streaming example
+    reader.stream(Some(10000), |eeg_chunk, acc_chunk, markers_chunk| {
+        // Process the chunk, for example, you could print the first few samples or store them
+        println!("Processing chunk of size: {}", eeg_chunk.len());
+        println!("First EEG sample: {:?}", eeg_chunk.first());
+        println!("First Acc sample: {:?}", acc_chunk.first());
+        println!("First Marker: {:?}", markers_chunk.first());
+    })?;
 
     Ok(())
 }
@@ -72,7 +84,8 @@ println!("First 5 EEG samples: {:?}", eeg_data.slice(s![..5, ..]));
 
 - `EasyReader::new(filepath: &str, verbose: bool)`: Initializes the reader for a given `.easy` file.
 - `EasyReader::get_info()`: Reads metadata from the `.info` file if available.
-- `EasyReader::get_l0_data()`: Reads and processes the EEG and accelerometer data from the `.easy` file.
+- `EasyReader::parse_data()`: Reads and processes the EEG and accelerometer data from the `.easy` file.
+- `EasyReader::strestream(&mut self, chunk_size: Option<usize>, mut process_chunk: FnMut(Vec<Vec<Float>>, Vec<Vec<Float>>, Vec<Float>))`: Streams the EEG and accelerometer data from the `.easy` file.
 - `EasyReader::print_summary()`: Prints a summary of the loaded data, including EEG channels, start time, and a preview of the data.
 
 ## File Formats
