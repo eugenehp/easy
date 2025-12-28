@@ -118,4 +118,4 @@ Inspired by [NEPy](https://github.com/Neuroelectrics/NEPy)
 
 ## Copyright
 
-2025, Eugene Hauptmann
+© 2025-2026, Eugene Hauptmann
